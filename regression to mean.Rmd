@@ -1,0 +1,302 @@
+---
+title: "Topic 4"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Topic 4- Regression to the mean
+```{r}
+library(SportsAnalytics270)
+data("nba_misc")
+head(nba_misc)
+```
+
+```{r}
+nba_misc$WR<-nba_misc$W/82
+
+var(nba_misc$WR)
+```
+```{r}
+0.5*0.5/82
+```
+```{r}
+data(nba_east)
+data(nba_west)
+
+nba_st<- rbind(nba_east, nba_west)
+
+
+
+nba_st$PW <- nba_st$PS^14.105/(nba_st$PS^14.105+nba_st$PA^14.105)
+nba_st$G <- nba_st$W+nba_st$L
+nba_st$PW_G <- round(nba_st$PW*nba_st$G)
+
+
+nba_st$DF <- nba_st$PW_G-nba_st$W
+
+#pthagorea wins- wins
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+nba_st %>% filter(Team=="Sacramento Kings") %>%
+  ggplot(aes(x=Season, y=DF))+geom_point()+geom_line()+
+  ggtitle('Wins difference for Sacramento Kings (Luck)')
+```
+
+```{r}
+means <- nba_st %>% group_by(Team) %>% summarise(mean=mean(DF))
+head(means)
+```
+```{r}
+ggplot(means, aes(x=mean))+geom_histogram()
+```
+#Competitive Balance- how competitive are leagues?
+```{r}
+data("seriea_st")
+colnames(seriea_st)
+head(seriea_st)
+```
+
+```{r}
+seriea_s <- seriea_st %>%
+  group_by(Season) %>%
+  summarise(SD=sd(Pt))
+seriea_s
+```
+
+```{r}
+ggplot(seriea_s, aes(Season, SD))+geom_bar(stat="identity")+
+  ggtitle("SD of Serie A by season")+
+  coord_cartesian(ylim = c(10,22))
+```
+
+```{r}
+data(nfl_st)
+summary(nfl_st)
+```
+```{r}
+library(dplyr)
+nfl_s<-nfl_st %>%
+  group_by(Season) %>%
+  summarise(SD=sd(Wpct))
+nfl_s
+```
+```{r}
+ggplot(nfl_s, aes(Season, SD))+geom_bar(stat="identity")+
+  ggtitle("NFL SD by season")+
+  coord_cartesian(ylim = c(0.1,0.25))
+```
+```{r}
+#Ideal StDev
+id_s <- 0.5/sqrt(16)
+
+#win pct stdev
+sd_wpct<-sd(nfl_st$Wpct)
+
+#noll-scully number for whole data set
+sd_wpct/id_s
+```
+
+```{r}
+library(dplyr)
+
+nfl_s<-nfl_st %>%
+  group_by(Season) %>%
+  summarise(NS=sd(Wpct)/id_s)
+nfl_s
+```
+
+```{r}
+library(ggplot2)
+ggplot(nfl_s, aes(Season, NS))+geom_bar(stat="identity")+
+  coord_cartesian(ylim=c(1,1.75))+
+  ggtitle("Noll-Skully number by season")+
+  geom_hline(yintercept = mean(nfl_s$NS), col="red", size=1.5)
+```
+```{r}
+#Concentration indexes- concentarted among teams in league, (points earned by top clubs/ total number points earned for all clubs)
+
+#increasing means competitive is decreasing
+
+```
+
+```{r}
+top5<- seriea_st %>%
+  group_by(Season) %>%
+  filter(Rank<6) %>%
+  summarise(TopP=sum(Pt))
+
+all<- seriea_st %>%
+      group_by(Season) %>%
+  summarize(Pt=sum(Pt))
+
+C5<-data.frame(Season=top5$Season, C5=top5$topP/all$Pt)
+```
+
+```{r}
+ggplot(C5, aes(Season, C5))+geom_bar(stat="identity")+
+  ggtitle("C% index for Serie A 1996-2018")+
+  coord_cartesian(ylim=c(0.2,0.42))
+```
+```{r}
+ggplot(C5, aes(Season,1- C5))+geom_bar(stat="identity")+
+  ggtitle("C% index for Serie A 1996-2018")+
+  coord_cartesian(ylim=c(0.4,0.65))
+```
+```{r}
+champ_c<- seriea_st %>%
+  filter(Rank == 1) %>%
+  group_by(Team) %>%
+  summarize(champ=n()) %>%
+  arrange(desc(champ))
+
+champ_c
+```
+
+```{r}
+#CI4 top 4 teams for championships of all last 25 years, if CI5 not less than 100%
+
+100*sum(champ_c[1:4,2])/sum(champ_c$champ)
+```
+```{r}
+#HHI- sahre of each team- concentration
+
+HHI<-seriea_st %>%
+  group_by(Season) %>%
+  mutate(Perc=Pt/sum(Pt)) %>%
+  summarise(HHI = sum(Perc^2))
+```
+
+```{r}
+ggplot(HHI, aes(Season, HHI))+geom_bar(stat="identity")+
+  ggtitle("HHI index by season")+
+  coord_cartesian(ylim=c(0,0.065))
+```
+
+```{r}
+seriea_st %>%
+  group_by(Season) %>%
+  summarise(count=n())
+```
+#which to take? correlate with other variable
+```{r}
+dHHI<-seriea_st %>%
+  group_by(Season) %>%
+  mutate(Perc=Pt/sum(Pt)) %>%
+  summarise(HHI = sum(Perc^2)-1/n())
+```
+```{r}
+ggplot(dHHI, aes(Season, HHI))+geom_bar(stat="identity")+
+  ggtitle("dHHI index by season")
+```
+#low value means competition
+```{r}
+library(SportsAnalytics270)
+str(mlb_standings)
+```
+
+```{r}
+mlb_HHI <- mlb_standings %>%
+  group_by(Season) %>%
+  summarise(HHI=sum(W^2)*(4/(30^2*162^2)))
+```
+```{r}
+ggplot(mlb_HHI, aes(Season, HHI))+geom_bar(stat="identity")+
+  geom_hline(yintercept = 1/30, col="red", size=1.5)+
+  coord_cartesian(ylim = c(0.03,0.035))+
+  ggtitle("HHI index by season for mlb")
+```
+
+#competitive is more or less the same
+#leading indicator-cause, laggingni-because of
+
+```{r}
+library(dplyr)
+library(SportsAnalytics270)
+data("mlb_salary")
+str(mlb_salary)
+```
+```{r}
+mlb_s<-mlb_salary %>%
+  group_by(Season) %>%
+  summarise(Tot.salary=sum(Current), SD=sd(Current))
+
+cor(mlb_s$Tot.salary, mlb_HHI$HHI)
+cor(mlb_s$SD, mlb_HHI$HHI)
+```
+```{r}
+mlb_HHI_s<-mlb_salary %>%
+  group_by(Season) %>%
+  mutate(Perc=Current/sum(Current)) %>%
+  summarise(HHI_S=sum(Perc^2))
+```
+```{r}
+cor(mlb_HHI_s$HHI_S, mlb_HHI$HHI)
+```
+
+```{r}
+#Short run competitiveness
+```
+
+```{r}
+data("f_data_sm")
+f_2009 <- f_data_sm %>%
+  filter(SEASON > 2008,
+         COUNTRY %in% c("Italy", "Germany", "Spain", "England",
+                        "Netherlands", "Portugal"), !is.na(H))
+head(f_2009)
+```
+prob of HT win 1/1.2,  away prob 1/15
+above one is marginal book maker
+```{r}
+install.packages("odds.converter")
+library(odds.converter)
+x <- odds.fv(c(1.4,3.8,8), input = 'dec', output = 'prob')
+x
+```
+above is odds free of vigorish
+```{r}
+sum(x)
+```
+```{r}
+f_2009[,c("H", "D", "A")] <- odds.fv(f_2009[,c("H", "D", "A")],
+                                     input = 'dec', output = 'prob')
+
+head(f_2009)
+
+#dec is decimal odds, and we want outcome of probabilites
+```
+```{r}
+library(measures)
+brier_score <- f_2009 %>% group_by(COUNTRY) %>%
+  do(SCORE = multiclass.Brier(.[,c("H", "D", "A")], .$FTR))
+brier_score <- as.data.frame(brier_score)
+brier_score$SCORE <- unlist(brier_score$SCORE)
+```
+```{r}
+library(ggplot2)
+ggplot(brier_score, aes(x=COUNTRY, y=SCORE))+geom_bar(stat='identity')+
+  coord_cartesian(ylim = c(0.5,0.6))+ggtitle('Match Uncertainty by country')
+```
+Germany is most competitive(highest uncertainty)
+```{r}
+brier_score <- f_2009 %>% group_by(COUNTRY, SEASON) %>%
+  do(SCORE = multiclass.Brier(.[,c("H", "D", "A")], .$FTR))
+brier_score <- as.data.frame(brier_score)
+brier_score$SCORE <- unlist(brier_score$SCORE)
+```
+
+```{r}
+brier_score %>% 
+  ggplot(aes(x=SEASON, y=SCORE))+
+  geom_bar(stat='identity', position=position_dodge(width=1))+
+  facet_grid(~COUNTRY)+coord_flip()+
+  scale_x_continuous(breaks = 2009:2019)+
+  ggtitle("Brier Score by Country")
+```
+
